@@ -1,4 +1,5 @@
-﻿using System.Diagnostics;
+﻿using MonitoringAgent.Utils;
+using System.Diagnostics;
 
 class SystemMonitor
 {
@@ -85,11 +86,32 @@ class SystemMonitor
 
 	static void Main()
 	{
-		while (true)
+		/*while (true)
 		{
 			PrintSystemUsage();
 			Console.WriteLine("-----------------------------------");
 			Thread.Sleep(2000);
+		}*/
+		var category = new PerformanceCounterCategory("Network Interface");
+		string[] instances = category.GetInstanceNames();
+
+		var monitor = new MonitoringAgent.Utils.SystemMonitor();
+		while (true)
+		{
+			monitor.UpdateValues();
+			Console.WriteLine($"CPU Usage         : {monitor.currentCPUUsagePercent,5:F1}%");
+			Console.WriteLine($"RAM Used          : {monitor.currentUsedRAM,5:F1} / {monitor.totalRAM:F1} GB");
+			Console.WriteLine($"Disk Read         : {monitor.currentDiskReadMB,6:F1} MB/s");
+			Console.WriteLine($"Disk Write        : {monitor.currentDiskWriteMB,6:F1} MB/s");
+			foreach (var diskCounter in monitor.diskUsageCounters)
+			{
+				Console.WriteLine($"Disk: {diskCounter.driveInfo.Name} Used {diskCounter.usedSpace} / {diskCounter.totalDiskSpace}");
+			}
+			foreach (var networkCounter in monitor.networkCounters)
+			{
+				Console.WriteLine($"Network Device: {networkCounter.networkInterface.Name} Rx: {networkCounter.currentIn}; Tx: {networkCounter.currentOut}");
+			}
+			Thread.Sleep(1000);
 		}
 	}
 }
