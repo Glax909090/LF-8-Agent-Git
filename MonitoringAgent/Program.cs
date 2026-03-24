@@ -1,21 +1,49 @@
 ﻿using MonitoringAgent.Utils;
+using Microsoft.AspNetCore.Builder;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.AspNetCore.Http;
 
-var monitor = new SystemMonitor();
-while (true)
+var builder = WebApplication.CreateBuilder(args);
+
+// 1. Register the monitor as a Singleton so it persists between API calls
+builder.Services.AddSingleton<SystemMonitor>();
+
+var app = builder.Build();
+
+// 2. Define the API Endpoint
+app.MapGet("/stats", (SystemMonitor monitor) =>
 {
+	// Refresh the values whenever the endpoint is hit
 	monitor.UpdateValues();
-	Console.WriteLine($"CPU Usage         : {monitor.currentCPUUsagePercent,5:F1}%");
-	Console.WriteLine($"RAM Used          : {monitor.currentUsedRAM,5:F1} / {monitor.totalRAM:F1} GB");
-	Console.WriteLine($"Disk Read         : {monitor.currentDiskReadMB,6:F2} MB/s");
-	Console.WriteLine($"Disk Write        : {monitor.currentDiskWriteMB,6:F2} MB/s");
-	foreach (var diskCounter in monitor.diskUsageCounters)
+
+	// Return an anonymous object which ASP.NET Core automatically 
+	// serializes to JSON
+	return Results.Ok(new
 	{
-		Console.WriteLine($"Disk: {diskCounter.driveInfo.Name} Used {(diskCounter.usedSpace / 1024f / 1024f / 1024f),6:F2}GiB / {(diskCounter.totalDiskSpace / 1024f / 1024f / 1024f),6:F2}GiB");
-	}
-	foreach (var networkCounter in monitor.networkCounters)
-	{
-		Console.WriteLine($"Network Device: {networkCounter.NetworkInterface.Name} Rx: {(networkCounter.CurrentInBytesPerSec * 8f / 1000f / 1000f),6:F2}Mbit/s; Tx: {(networkCounter.CurrentOutBytesPerSec * 8f / 1000f / 1000f),6:F2}Mbit/s");
-	}
-	Console.WriteLine("-----------------------------------");
-	Thread.Sleep(1000);
-}
+		Timestamp = DateTime.Now,
+		CpuUsagePercent = $"{monitor.currentCPUUsagePercent:F1}%",
+		Ram = new
+		{
+			Used = monitor.currentUsedRAM,
+			Total = monitor.totalRAM,
+			Unit = "GB"
+		},
+		DiskIO = new
+		{
+			ReadMBps = monitor.currentDiskReadMB,
+			WriteMBps = monitor.currentDiskWriteMB
+		},
+		Disks = monitor.diskUsageCounters.Select(d => new {
+			Name = d.driveInfo.Name,
+			UsedGiB = d.usedSpace / Math.Pow(1024, 3),
+			TotalGiB = d.totalDiskSpace / Math.Pow(1024, 3)
+		}),
+		Network = monitor.networkCounters.Select(n => new {
+			Interface = n.NetworkInterface.Name,
+			DownloadMbit = n.CurrentInBytesPerSec * 8f / 1_000_000f,
+			UploadMbit = n.CurrentOutBytesPerSec * 8f / 1_000_000f
+		})
+	});
+});
+
+app.Run("http://0.0.0.0:8080");
