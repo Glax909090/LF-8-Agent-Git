@@ -86,8 +86,7 @@ namespace MonitoringAgent.Utils
 			networkCounters.Clear();
 			foreach (var networkInterface in networkInterfaces)
 			{
-				string? perfCounterName = NetworkPerformanceCounter.FindPerfCounterInstanceName(networkInterface);
-				if (networkInterface.OperationalStatus == OperationalStatus.Up && perfCounterName != null)
+				if (networkInterface.OperationalStatus == OperationalStatus.Up)
 				{
 					Console.WriteLine(networkInterface.Name + " : " + networkInterface.NetworkInterfaceType);
 					NetworkPerformanceCounter counter = new(networkInterface);

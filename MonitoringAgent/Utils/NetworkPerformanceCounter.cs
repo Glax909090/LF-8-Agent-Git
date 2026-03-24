@@ -1,68 +1,48 @@
-﻿using System.Diagnostics;
-using System.Net.NetworkInformation;
+﻿using System.Net.NetworkInformation;
+using System.Diagnostics;
 
-namespace MonitoringAgent.Utils
+internal class NetworkPerformanceCounter
 {
-	internal class NetworkPerformanceCounter(NetworkInterface networkInterface)
+	public readonly NetworkInterface NetworkInterface;
+
+	private long _previousBytesReceived = 0;
+	private long _previousBytesSent = 0;
+	private DateTime _previousTime = DateTime.UtcNow;
+
+	public double CurrentInBytesPerSec { get; private set; } = 0;
+	public double CurrentOutBytesPerSec { get; private set; } = 0;
+
+	public NetworkPerformanceCounter(NetworkInterface ni)
 	{
-		public NetworkInterface networkInterface = networkInterface;
-		public PerformanceCounter performanceCounterIn = new("Network Interface", "Bytes Received/sec", FindPerfCounterInstanceName(networkInterface));
-		public PerformanceCounter performanceCounterOut = new("Network Interface", "Bytes Sent/sec", FindPerfCounterInstanceName(networkInterface));
+		NetworkInterface = ni;
 
-		public double currentOut = 0;
-		public double currentIn = 0;
+		var stats = ni.GetIPStatistics();
+		_previousBytesReceived = stats.BytesReceived;
+		_previousBytesSent = stats.BytesSent;
+		_previousTime = DateTime.UtcNow;
 
-		public void UpdateCounter()
+		Console.WriteLine($"✅ Added: {ni.Name}  (Description: {ni.Description})");
+	}
+
+	public void UpdateCounter()
+	{
+		var stats = NetworkInterface.GetIPv4Statistics();
+
+		long currentReceived = stats.BytesReceived;
+		long currentSent = stats.BytesSent;
+		DateTime now = DateTime.UtcNow;
+
+		double secondsElapsed = (now - _previousTime).TotalSeconds;
+
+		if (secondsElapsed > 0)
 		{
-			currentOut = performanceCounterOut.NextValue();
-			currentIn = performanceCounterIn.NextValue();
+			CurrentInBytesPerSec = (currentReceived - _previousBytesReceived) / secondsElapsed;
+			CurrentOutBytesPerSec = (currentSent - _previousBytesSent) / secondsElapsed;
 		}
 
-		public static string? FindPerfCounterInstanceName(NetworkInterface ni)
-		{
-			var category = new PerformanceCounterCategory("Network Interface");
-			var instances = category.GetInstanceNames();
-
-			string desc = ni.Description ?? "";
-			string name = ni.Name ?? "";
-
-			// Normalize: convert (DBS) → [DBS] and vice versa, remove extra spaces
-			string normalizedDesc = NormalizeBrackets(desc);
-			string normalizedName = NormalizeBrackets(name);
-
-			foreach (var inst in instances)
-			{
-				string normalizedInst = NormalizeBrackets(inst);
-
-				// Exact match after normalization
-				if (string.Equals(normalizedInst, normalizedDesc, StringComparison.OrdinalIgnoreCase) ||
-					string.Equals(normalizedInst, normalizedName, StringComparison.OrdinalIgnoreCase))
-				{
-					return inst;   // return the ORIGINAL perf instance name
-				}
-
-				// Loose contains match (handles _2, _3, _4, _5 suffixes too)
-				if (normalizedInst.Contains(normalizedDesc, StringComparison.OrdinalIgnoreCase) ||
-					normalizedDesc.Contains(normalizedInst, StringComparison.OrdinalIgnoreCase) ||
-					normalizedInst.Contains(normalizedName, StringComparison.OrdinalIgnoreCase))
-				{
-					return inst;
-				}
-			}
-
-			return null;
-		}
-
-		// Helper to normalize bracket differences
-		private static string NormalizeBrackets(string s)
-		{
-			if (string.IsNullOrEmpty(s)) return s;
-
-			return s.Replace(" (", " [")
-					.Replace(") ", "] ")
-					.Replace("(", "[")
-					.Replace(")", "]")
-					.Trim();
-		}
+		// Update for next call
+		_previousBytesReceived = currentReceived;
+		_previousBytesSent = currentSent;
+		_previousTime = now;
 	}
 }
