@@ -21,7 +21,7 @@ app.MapGet("/stats", (SystemMonitor monitor) =>
 	return Results.Ok(new
 	{
 		Timestamp = DateTime.Now,
-		CpuUsagePercent = $"{monitor.currentCPUUsagePercent:F1}%",
+		CpuUsagePercent = monitor.currentCPUUsagePercent,
 		Ram = new
 		{
 			Used = monitor.currentUsedRAM,
