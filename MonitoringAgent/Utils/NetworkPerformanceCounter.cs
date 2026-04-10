@@ -1,7 +1,7 @@
 ﻿using System.Net.NetworkInformation;
 using System.Diagnostics;
 
-internal class NetworkPerformanceCounter
+public class NetworkPerformanceCounter
 {
 	public readonly NetworkInterface NetworkInterface;
 
