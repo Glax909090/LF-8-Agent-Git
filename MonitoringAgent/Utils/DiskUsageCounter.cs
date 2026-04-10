@@ -1,6 +1,6 @@
 ﻿namespace MonitoringAgent.Utils
 {
-	internal class DiskUsageCounter(DriveInfo driveInfo)
+	public class DiskUsageCounter(DriveInfo driveInfo)
 	{
 		public DriveInfo driveInfo = driveInfo;
 		public long totalDiskSpace = driveInfo.TotalSize;
